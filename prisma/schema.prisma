@@ -13,9 +13,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-  model User {
+  model Registro {
     id Int @id @default(autoincrement())
-    name String 
-    email String @unique
-    createdAt  DateTime @default(now())
+    tipo String
+    descricao String
+    foto String
+    localizacao String
+
  }

@@ -11,10 +11,13 @@
   "dependencies": {
     "@prisma/client": "^6.16.1",
     "@prisma/extension-accelerate": "^2.0.2",
+    "leaflet": "^1.9.4",
+    "leaflet-defaulticon-compatibility": "^0.1.2",
     "next": "15.5.3",
     "prisma": "^6.16.1",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
