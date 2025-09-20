@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -10,93 +10,115 @@ export default function MapClient({ center, zoom = 13, registros = [], onMapClic
   const markersRef = useRef(null);
   const individualMarkers = useRef({});
 
+  // Efeito para inicialização do mapa (roda apenas uma vez)
   useEffect(() => {
-    if (!mapRef.current) {
-      const map = L.map("map").setView(center, zoom);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+    if (mapRef.current) return; // Se o mapa já foi inicializado, não faz nada
 
-      markersRef.current = L.layerGroup().addTo(map);
+    const map = L.map("map").setView(center, zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-      map.on('click', (e) => {
-        if (onMapClick) {
-          onMapClick(e.latlng);
-        }
-      });
+    markersRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
 
-      map.on('popupopen', (e) => {
-        const popup = e.popup;
-        const button = popup.getElement().querySelector('.status-save-button');
-        if (button) {
-          button.addEventListener('click', () => {
-            const registroId = button.dataset.id;
-            const select = popup.getElement().querySelector('.status-select');
-            const novoStatus = select.value;
+    // Função de limpeza: remove o mapa quando o componente é desmontado
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [center, zoom]);
 
-            if (registroId && novoStatus && onStatusChange) {
-              onStatusChange(registroId, novoStatus);
-              mapRef.current.closePopup();
-            }
-          });
-        }
-      });
-
-      mapRef.current = map;
-    }
-  }, [center, zoom, onMapClick, onStatusChange]);
-
+  // Efeito para gerenciar os eventos do mapa (click e popup)
   useEffect(() => {
-    if (mapRef.current && markersRef.current) {
-      markersRef.current.clearLayers();
-      individualMarkers.current = {};
+    const map = mapRef.current;
+    if (!map) return;
 
-      registros.forEach(foco => {
-        if (foco.localizacao && typeof foco.localizacao === 'string') {
-          const coordsArray = foco.localizacao.split(',').map(coord => parseFloat(coord.trim()));
-          if (coordsArray.length === 2 && !isNaN(coordsArray[0]) && !isNaN(coordsArray[1])) {
-            const popupContent = `
-              <b>Tipo:</b> ${foco.tipo}<br>
-              <b>Status Atual:</b> ${foco.status}<br>
-              <b>Descrição:</b> ${foco.descricao || 'Sem descrição'}
-              <hr style="margin: 0.5rem 0;" />
-              <div class="d-flex align-items-center">
-                <select class="form-select form-select-sm me-2 status-select">
-                  <option value="suspeito" ${foco.status === 'suspeito' ? 'selected' : ''}>Suspeito</option>
-                  <option value="confirmado" ${foco.status === 'confirmado' ? 'selected' : ''}>Confirmado</option>
-                  <option value="resolvido" ${foco.status === 'resolvido' ? 'selected' : ''}>Resolvido</option>
-                </select>
-                <button class="btn btn-primary btn-sm status-save-button" data-id="${foco.id}">Salvar</button>
-              </div>
-            `;
+    const handleClick = (e) => onMapClick?.(e.latlng);
+    map.on('click', handleClick);
 
-            const marker = L.marker(coordsArray)
-              .addTo(markersRef.current)
-              .bindPopup(popupContent);
+    const handlePopupOpen = (e) => {
+      const popupEl = e.popup.getElement();
+      const button = popupEl?.querySelector('.status-save-button');
+      if (!button) return;
 
-            individualMarkers.current[foco.id] = marker;
-          }
+      const onButtonClick = () => {
+        const registroId = button.dataset.id;
+        const select = popupEl.querySelector('.status-select');
+        const novoStatus = select?.value;
+        if (registroId && novoStatus) {
+          onStatusChange?.(registroId, novoStatus);
+          map.closePopup();
+        }
+      };
+      button.addEventListener('click', onButtonClick);
+
+      map.once('popupclose', (ev) => {
+        if (ev.popup === e.popup) {
+          button.removeEventListener('click', onButtonClick);
         }
       });
-    }
+    };
+    map.on('popupopen', handlePopupOpen);
+
+    // Limpa os listeners ao desmontar ou se as funções de callback mudarem
+    return () => {
+      map.off('click', handleClick);
+      map.off('popupopen', handlePopupOpen);
+    };
+  }, [onMapClick, onStatusChange]);
+
+  // Efeito para atualizar os marcadores na tela
+  useEffect(() => {
+    if (!markersRef.current) return;
+    
+    markersRef.current.clearLayers();
+    individualMarkers.current = {};
+
+    registros.forEach(foco => {
+      if (foco.localizacao) {
+        const coords = foco.localizacao.split(',').map(c => parseFloat(c.trim()));
+        if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+          const popupContent = `
+            <b>Tipo:</b> ${foco.tipo}<br>
+            <b>Status Atual:</b> ${foco.status}<br>
+            <b>Descrição:</b> ${foco.descricao || 'Sem descrição'}
+            <hr style="margin: 0.5rem 0;" />
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select class="form-select form-select-sm status-select" style="flex-grow: 1;">
+                <option value="suspeito" ${foco.status === 'suspeito' ? 'selected' : ''}>Suspeito</option>
+                <option value="confirmado" ${foco.status === 'confirmado' ? 'selected' : ''}>Confirmado</option>
+                <option value="resolvido" ${foco.status === 'resolvido' ? 'selected' : ''}>Resolvido</option>
+              </select>
+              <button class="btn btn-primary btn-sm status-save-button" data-id="${foco.id}">Salvar</button>
+            </div>
+          `;
+          const marker = L.marker(coords).bindPopup(popupContent);
+          markersRef.current.addLayer(marker);
+          individualMarkers.current[foco.id] = marker;
+        }
+      }
+    });
   }, [registros]);
 
+  // Efeito para recentralizar o mapa
   useEffect(() => {
     if (mapRef.current && recenter) {
-      mapRef.current.setView([recenter.latitude, recenter.longitude], 15);
+      mapRef.current.setView([recenter.latitude, recenter.longitude], 15, { animate: true });
     }
   }, [recenter]);
 
+  // Efeito para abrir um pop-up específico
   useEffect(() => {
-    if (mapRef.current && openPopupId && individualMarkers.current[openPopupId]) {
+    if (openPopupId && individualMarkers.current[openPopupId]) {
       individualMarkers.current[openPopupId].openPopup();
     }
-  }, [openPopupId, registros]);
+  }, [openPopupId]);
 
   return (
-    <div style={{ height: "400px", width: "100%" }}>
-      <div id="map" style={{ height: "100%", width: "100%" }} />
+    <div style={{ height: "400px", width: "100%", borderRadius: "var(--bs-border-radius)" }}>
+      <div id="map" style={{ height: "100%", width: "100%", borderRadius: "inherit" }} />
     </div>
   );
 }
