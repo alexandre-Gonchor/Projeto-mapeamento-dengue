@@ -18,7 +18,7 @@ model Registro {
   tipo        String
   status      String @default("suspeito")
   descricao   String?
-  foto        String?
+  fotoUrl        String?
   localizacao String
   createdAt   DateTime @default(now())
 }
