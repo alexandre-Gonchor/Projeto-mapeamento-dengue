@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "public"."Registro" ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ALTER COLUMN "descricao" DROP NOT NULL,
+ALTER COLUMN "foto" DROP NOT NULL,
+ALTER COLUMN "status" SET DEFAULT 'suspeito';

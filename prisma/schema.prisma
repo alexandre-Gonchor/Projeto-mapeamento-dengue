@@ -13,11 +13,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-  model Registro {
-    id Int @id @default(autoincrement())
-    tipo String
-    descricao String
-    foto String
-    localizacao String
-
- }
+model Registro {
+  id          Int    @id @default(autoincrement())
+  tipo        String
+  status      String @default("suspeito")
+  descricao   String?
+  foto        String?
+  localizacao String
+  createdAt   DateTime @default(now())
+}
