@@ -23,7 +23,6 @@ export default function Home() {
   const [tipo, setTipo] = useState('Água parada');
   const [descricao, setDescricao] = useState('');
   const [localizacao, setLocalizacao] = useState('');
-  const [foto, setFoto] = useState(null);
 
   // --- Estados da Página e Dados ---
   const [location, setLocation] = useState(null);
@@ -83,7 +82,6 @@ export default function Home() {
     formData.append('descricao', descricao);
     formData.append('localizacao', localizacao);
     formData.append('status', 'suspeito');
-    if (foto) formData.append('foto', foto);
 
     try {
       const response = await fetch('/api/registrar_Foco', { method: 'POST', body: formData });
@@ -100,7 +98,6 @@ export default function Home() {
       setTipo('Água parada');
       setDescricao('');
       setLocalizacao('');
-      setFoto(null);
       if(document.getElementById('photo')) document.getElementById('photo').value = '';
     } catch (err) {
       console.error("Erro ao salvar registro:", err);
@@ -158,10 +155,6 @@ export default function Home() {
   const handleMapClick = useCallback((latlng) => {
     setLocalizacao(`${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`);
   }, []);
-
-  const handleFotoChange = (event) => {
-    setFoto(event.target.files ? event.target.files[0] : null);
-  };
   
   const handleRecenter = useCallback(() => {
     if (location) {
@@ -236,7 +229,6 @@ export default function Home() {
               <form onSubmit={salvarRegistro}>
                 <div className="mb-2"><label className="form-label">Tipo</label><select className="form-select" required value={tipo} onChange={(e) => setTipo(e.target.value)}><option value="Água parada">Água parada</option><option value="Lixo">Lixo</option><option value="Pneu">Pneu</option><option value="Caixa d'água destampada">Caixa d'água destampada</option><option value="Outro">Outro</option></select></div>
                 <div className="mb-2"><label className="form-label">Descrição</label><textarea className="form-control" rows="2" value={descricao} onChange={(e) => setDescricao(e.target.value)}></textarea></div>
-                <div className="mb-2"><label className="form-label">Foto (opcional)</label><input id="photo" type="file" accept="image/*" className="form-control form-control-sm" onChange={handleFotoChange} /></div>
                 <div className="mb-2"><label className="form-label">Localização (lat, lng)</label><input className="form-control form-control-sm" readOnly placeholder="Clique no mapa para selecionar" value={localizacao} /></div>
                 <div className="d-grid gap-2"><button type="submit" className="btn btn-primary">Salvar registro</button></div>
               </form>

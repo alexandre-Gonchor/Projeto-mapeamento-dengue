@@ -26,7 +26,6 @@ model Registro {
   tipo        String
   status      Status   @default(suspeito) // ALTERADO: Usa o enum Status
   descricao   String?
-  fotoUrl     String?
   localizacao String
   createdAt   DateTime @default(now())
 }

@@ -22,29 +22,6 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: 'Campos "tipo" e "localizacao" são obrigatórios.' }), { status: 400 });
     }
 
-    // 4. Processa o arquivo da foto, se existir
-    const fotoFile = formData.get('foto');
-    let fotoUrl = null; // O valor que será salvo no banco de dados
-
-    if (fotoFile && typeof fotoFile.arrayBuffer === 'function' && fotoFile.size > 0) {
-      // Converte o arquivo para um Buffer que pode ser salvo
-      const buffer = Buffer.from(await fotoFile.arrayBuffer());
-      // Gera um nome de arquivo único para evitar sobreposições
-      const filename = `${Date.now()}_${fotoFile.name.replace(/\s+/g, '_')}`;
-      
-      // Define o caminho onde a imagem será salva
-      const uploadDir = path.join(process.cwd(), 'public/uploads');
-
-      // Garante que o diretório de uploads exista
-      await mkdir(uploadDir, { recursive: true });
-
-      // Salva o arquivo no diretório
-      await writeFile(path.join(uploadDir, filename), buffer);
-
-      // Define a URL pública para salvar no banco
-      fotoUrl = `/uploads/${filename}`;
-    }
-
     // 5. Usa o Prisma para criar o novo registro no banco de dados
     const novoRegistro = await prisma.registro.create({
       data: {
@@ -52,7 +29,6 @@ export async function POST(request) {
         descricao,
         localizacao,
         status,
-        fotoUrl, // Salva a URL da foto ou null
       },
     });
 
