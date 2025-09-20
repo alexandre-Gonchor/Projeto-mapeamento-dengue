@@ -39,6 +39,7 @@ export default function Home() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [registrosPorPagina] = useState(5);
   const [filtroStatus, setFiltroStatus] = useState('all');
+  const [totalPaginas, setTotalPaginas] = useState(1); // Controlado pela API
 
   // Importação dinâmica do mapa para evitar erro de SSR (window is not defined)
   const MapWithNoSSR = useMemo(() => dynamic(() => import('./components/mapClient'), {
@@ -53,17 +54,21 @@ export default function Home() {
   }), []);
 
   // --- FUNÇÕES DE API ---
-  const buscarRegistros = useCallback(async () => {
+  const buscarRegistros = useCallback(async (page) => {
     try {
-      const response = await fetch('/api/pegar_foco');
+      const response = await fetch(`/api/pegar_foco?page=${page}&limit=${registrosPorPagina}`);
       if (!response.ok) throw new Error('Falha ao buscar registros da API');
+      
       const data = await response.json();
-      setRegistros(data);
+
+      setRegistros(data.data || []);
+      setTotalPaginas(data.pagination?.totalPages || 1);
+
     } catch (err) {
       console.error("Erro ao buscar registros:", err);
       setApiMessage('Erro ao carregar os registros.');
     }
-  }, []);
+  }, [registrosPorPagina]);
 
   const salvarRegistro = async (event) => {
     event.preventDefault();
@@ -84,11 +89,14 @@ export default function Home() {
       const response = await fetch('/api/registrar_Foco', { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Falha ao salvar registro');
       
-      const novoRegistro = await response.json();
-      setRegistros(prev => [novoRegistro, ...prev]);
       setApiMessage("Registro salvo com sucesso!");
       
-      // Limpa formulário
+      if (paginaAtual === 1) {
+        await buscarRegistros(1);
+      } else {
+        setPaginaAtual(1);
+      }
+      
       setTipo('Água parada');
       setDescricao('');
       setLocalizacao('');
@@ -119,7 +127,7 @@ export default function Home() {
     }
   }, []);
 
-  // --- EFEITO INICIAL ---
+  // --- EFEITO INICIAL E DE ATUALIZAÇÃO DE PÁGINA ---
   useEffect(() => {
     const getLocation = () => {
       if (navigator.geolocation) {
@@ -130,7 +138,7 @@ export default function Home() {
           },
           () => {
             console.warn("Permissão de localização negada. Usando localização padrão.");
-            setIsLoading(false); // Continua mesmo sem permissão
+            setIsLoading(false);
           }
         );
       } else {
@@ -139,11 +147,14 @@ export default function Home() {
       }
     };
     
-    getLocation();
-    buscarRegistros();
-  }, [buscarRegistros]);
+    if (isLoading) {
+        getLocation();
+    }
+    
+    buscarRegistros(paginaAtual);
+  }, [paginaAtual, buscarRegistros, isLoading]);
   
-  // --- HANDLERS DE INTERAÇÃO (MEMORIZADOS COM useCallback) ---
+  // --- HANDLERS DE INTERAÇÃO ---
   const handleMapClick = useCallback((latlng) => {
     setLocalizacao(`${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`);
   }, []);
@@ -172,18 +183,18 @@ export default function Home() {
 
   // --- LÓGICA DE FILTRO E PAGINAÇÃO ---
   const registrosFiltrados = useMemo(() => {
+    if (!Array.isArray(registros)) return []; // Medida de segurança
     if (filtroStatus === 'all') return registros;
     return registros.filter(r => r.status === filtroStatus);
   }, [registros, filtroStatus]);
 
-  const totalPaginas = Math.ceil(registrosFiltrados.length / registrosPorPagina);
-  const registrosAtuais = registrosFiltrados.slice((paginaAtual - 1) * registrosPorPagina, paginaAtual * registrosPorPagina);
+  const registrosAtuais = registrosFiltrados;
 
   const irParaPagina = (num) => setPaginaAtual(num);
   const proximaPagina = () => setPaginaAtual(curr => Math.min(curr + 1, totalPaginas));
   const paginaAnterior = () => setPaginaAtual(curr => Math.max(curr - 1, 1));
   
-  const mapCenter = useMemo(() => location ? [location.latitude, location.longitude] : [-22.9068, -43.1729], [location]); // Padrão: Rio de Janeiro
+  const mapCenter = useMemo(() => location ? [location.latitude, location.longitude] : [-25.4284, -49.2733], [location]);
 
   // --- RENDERIZAÇÃO ---
   return (
@@ -223,7 +234,6 @@ export default function Home() {
             <div className="card-body">
               <h5 className="card-title">Registrar possível foco</h5>
               <form onSubmit={salvarRegistro}>
-                {/* Campos do Formulário */}
                 <div className="mb-2"><label className="form-label">Tipo</label><select className="form-select" required value={tipo} onChange={(e) => setTipo(e.target.value)}><option value="Água parada">Água parada</option><option value="Lixo">Lixo</option><option value="Pneu">Pneu</option><option value="Caixa d'água destampada">Caixa d'água destampada</option><option value="Outro">Outro</option></select></div>
                 <div className="mb-2"><label className="form-label">Descrição</label><textarea className="form-control" rows="2" value={descricao} onChange={(e) => setDescricao(e.target.value)}></textarea></div>
                 <div className="mb-2"><label className="form-label">Foto (opcional)</label><input id="photo" type="file" accept="image/*" className="form-control form-control-sm" onChange={handleFotoChange} /></div>
@@ -236,7 +246,7 @@ export default function Home() {
           <div className="card">
             <div className="card-body">
               <h6 className="card-title">Registros Recentes</h6>
-              <select className="form-select form-select-sm mb-2" value={filtroStatus} onChange={(e) => { setFiltroStatus(e.target.value); setPaginaAtual(1); }}><option value="all">Todos</option><option value="suspeito">Suspeito</option><option value="confirmado">Confirmado</option><option value="resolvido">Resolvido</option></select>
+              <select className="form-select form-select-sm mb-2" value={filtroStatus} onChange={(e) => { setFiltroStatus(e.target.value); }}><option value="all">Todos</option><option value="suspeito">Suspeito</option><option value="confirmado">Confirmado</option><option value="resolvido">Resolvido</option></select>
               <div className="list-group mb-3">
                 {registrosAtuais.length > 0 ? (
                   registrosAtuais.map(r => (

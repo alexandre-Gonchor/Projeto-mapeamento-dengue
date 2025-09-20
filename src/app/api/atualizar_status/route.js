@@ -1,58 +1,63 @@
-// app/api/atualizar_status/route.js
-
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// ALTERADO: Importa a instância única do Prisma e helpers do Next.js
+import prisma from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 export async function PUT(request) {
   try {
     const body = await request.json();
     const { id, status } = body;
 
-    // Validação dos dados recebidos
+    // 1. Validação dos dados recebidos (já estava ótima)
     if (!id || !status) {
-      return new Response(
-        JSON.stringify({ error: 'ID do registro e novo status são obrigatórios.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { error: 'ID do registro e novo status são obrigatórios.' },
+        { status: 400 }
       );
     }
     
-    // Lista de status permitidos
     const statusPermitidos = ['suspeito', 'confirmado', 'resolvido'];
     if (!statusPermitidos.includes(status)) {
-        return new Response(
-            JSON.stringify({ error: 'Status inválido.' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
+      return NextResponse.json(
+        { error: 'Status inválido.' },
+        { status: 400 }
+      );
     }
 
-    // Atualiza o registro no banco de dados usando o Prisma
+    // 2. Tenta atualizar o registro no banco de dados
     const registroAtualizado = await prisma.registro.update({
       where: {
-        id: parseInt(id), // Garante que o ID é um número
+        // O Prisma lida com a conversão de tipo, mas garantir que seja um número é seguro.
+        id: Number(id), 
       },
       data: {
         status: status,
       },
     });
+    
+    // 3. NOVO: Invalida o cache da página principal
+    // Isso garante que, na próxima visita à página, os dados da lista de registros serão buscados novamente.
+    revalidatePath('/'); // Invalida o cache da rota da página inicial
+    revalidatePath('/api/pegar_foco'); // Também pode invalidar a rota da API diretamente
 
-    return new Response(
-      JSON.stringify(registroAtualizado),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    // 4. Retorna o registro atualizado usando NextResponse.json
+    return NextResponse.json(registroAtualizado);
 
   } catch (error) {
     console.error("Erro ao atualizar status:", error);
-    // Trata o caso de o registro não ser encontrado
+    
+    // Tratamento de erro específico para registro não encontrado (já estava ótimo)
     if (error.code === 'P2025') {
-        return new Response(
-            JSON.stringify({ error: `Registro com ID ${id} não encontrado.` }),
-            { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
+      return NextResponse.json(
+        { error: `Registro não encontrado.` },
+        { status: 404 }
+      );
     }
-    return new Response(
-      JSON.stringify({ error: 'Não foi possível atualizar o status.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+
+    // Erro genérico do servidor
+    return NextResponse.json(
+      { error: 'Não foi possível atualizar o status.' },
+      { status: 500 }
     );
   }
 }
