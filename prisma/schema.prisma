@@ -13,12 +13,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+// Adicione este bloco acima do seu modelo 'Registro'
+enum Status {
+  suspeito
+  confirmado
+  resolvido
+}
+
 model Registro {
-  id          Int    @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   tipo        String
-  status      String @default("suspeito")
+  status      Status   @default(suspeito) // ALTERADO: Usa o enum Status
   descricao   String?
-  fotoUrl        String?
+  fotoUrl     String?
   localizacao String
   createdAt   DateTime @default(now())
 }
